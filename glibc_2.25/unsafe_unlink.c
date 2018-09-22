@@ -57,3 +57,37 @@ int main()
 }
 
 
+
+
+/*
+Welcome to unsafe unlink 2.0!
+Tested in Ubuntu 14.04/16.04 64bit.
+This technique can be used when you have a pointer at a known location to a region you can call unlink on.
+The most common scenario is a vulnerable buffer that can be overflown and has a global pointer.
+The point of this exercise is to use free to corrupt the global chunk0_ptr to achieve arbitrary memory write.
+
+The global chunk0_ptr is at 0x56285451f030, pointing to 0x5628562f9260
+The victim chunk we are going to corrupt is at 0x5628562f92f0
+
+We create a fake chunk inside chunk0.
+We setup the 'next_free_chunk' (fd) of our fake chunk to point near to &chunk0_ptr so that P->fd->bk = P.
+We setup the 'previous_free_chunk' (bk) of our fake chunk to point near to &chunk0_ptr so that P->bk->fd = P.
+With this setup we can pass this check: (P->fd->bk != P || P->bk->fd != P) == False
+Fake chunk fd: 0x56285451f018
+Fake chunk bk: 0x56285451f020
+
+We assume that we have an overflow in chunk0 so that we can freely change chunk1 metadata.
+We shrink the size of chunk0 (saved as 'previous_size' in chunk1) so that free will think that chunk0 starts where we placed our fake chunk.
+It's important that our fake chunk begins exactly where the known pointer points and that we shrink the chunk accordingly
+If we had 'normally' freed chunk0, chunk1.previous_size would have been 0x90, however this is its new value: 0x80
+We mark our fake chunk as free by setting 'previous_in_use' of chunk1 as False.
+
+Now we free chunk1 so that consolidate backward will unlink our fake chunk, overwriting chunk0_ptr.
+You can find the source of the unlink macro at https://sourceware.org/git/?p=glibc.git;a=blob;f=malloc/malloc.c;h=ef04360b918bceca424482c6db03cc5ec90c3e00;hb=07c18a008c2ed8f5660adba2b778671db159a141#l1344
+
+At this point we can use chunk0_ptr to overwrite itself to point to an arbitrary location.
+chunk0_ptr is now pointing where we want, we use it to overwrite our victim string.
+Original value: Hello!~
+New Value: Hello!~
+
+*/

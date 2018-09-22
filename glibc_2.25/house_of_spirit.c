@@ -33,3 +33,21 @@ int main()
 	fprintf(stderr, "Now the next malloc will return the region of our fake chunk at %p, which will be %p!\n", &fake_chunks[1], &fake_chunks[2]);
 	fprintf(stderr, "malloc(0x30): %p\n", malloc(0x30));
 }
+
+
+/*
+
+This file demonstrates the house of spirit attack.
+Calling malloc() once so that it sets up its memory.
+We will now overwrite a pointer to point to a fake 'fastbin' region.
+This region (memory of length: 80) contains two chunks. The first starts at 0x7ffe6d2b08a8 and the second at 0x7ffe6d2b08d8.
+This chunk.size of this region has to be 16 more than the region (to accomodate the chunk data) while still falling into the fastbin category (<= 128 on x64). The PREV_INUSE (lsb) bit is ignored by free for fastbin-sized chunks, however the IS_MMAPPED (second lsb) and NON_MAIN_ARENA (third lsb) bits cause problems.
+... note that this has to be the size of the next malloc request rounded to the internal size used by the malloc implementation. E.g. on x64, 0x30-0x38 will all be rounded to 0x40, so they would work for the malloc parameter at the end.
+The chunk.size of the *next* fake region has to be sane. That is > 2*SIZE_SZ (> 16 on x64) && < av->system_mem (< 128kb by default for the main arena) to pass the nextsize integrity checks. No need for fastbin size.
+Now we will overwrite our pointer with the address of the fake region inside the fake first chunk, 0x7ffe6d2b08a8.
+... note that the memory address of the *region* associated with this chunk must be 16-byte aligned.
+Freeing the overwritten pointer.
+Now the next malloc will return the region of our fake chunk at 0x7ffe6d2b08a8, which will be 0x7ffe6d2b08b0!
+malloc(0x30): 0x7ffe6d2b08b0
+
+*/

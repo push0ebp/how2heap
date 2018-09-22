@@ -33,3 +33,22 @@ int main(){
 		   "rewrite:\n");
 	fprintf(stderr, "%p: %p\n", &stack_var, (void*)stack_var);
 }
+
+/*
+This file demonstrates unsorted bin attack by write a large unsigned long value into stack
+In practice, unsorted bin attack is generally prepared for further attacks, such as rewriting the global variable global_max_fast in libc for further fastbin attack
+
+Let's first look at the target we want to rewrite on stack:
+0x7ffe196dc388: 0
+
+Now, we allocate first normal chunk on the heap at: 0x55b9002d6260
+And allocate another normal chunk in order to avoid consolidating the top chunk withthe first one during the free()
+
+We free the first chunk now and it will be inserted in the unsorted bin with its bk pointer point to (nil)
+Now emulating a vulnerability that can overwrite the victim->bk pointer
+And we write it with the target address-16 (in 32-bits machine, it should be target address-8):0x7ffe196dc378
+
+Let's malloc again to get the chunk we just free. During this time, target should has already been rewrite:
+0x7ffe196dc388: (nil)
+
+*/
