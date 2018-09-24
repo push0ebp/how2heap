@@ -31,3 +31,24 @@ int main()
 
 	return 0;
 }
+
+/*
+
+This file demonstrates a simple tcache poisoning attack by tricking malloc into
+returning a pointer to an arbitrary location (in this case, the stack).
+The attack is very similar to fastbin corruption attack.
+
+The address we want malloc() to return is 0x7ffe770c6330.
+Allocating 1 buffer.
+malloc(128): 0x55e547d56260
+Freeing the buffer...
+Now the tcache list has [ 0x55e547d56260 ].
+We overwrite the first 8 bytes (fd/next pointer) of the data at 0x55e547d56260
+to point to the location to control (0x7ffe770c6330).
+1st malloc(128): 0x55e547d56260
+Now the tcache list has [ 0x7ffe770c6330 ].
+2st malloc(128): 0x7ffe770c6330
+We got the control
+
+
+*/

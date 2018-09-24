@@ -35,3 +35,26 @@ int main()
 	fprintf(stderr, "first allocation %p points to %s\n", a, a);
 	fprintf(stderr, "If we reuse the first allocation, it now holds the data from the third allocation.");
 }
+
+/*
+This file doesn't demonstrate an attack, but shows the nature of glibc's allocator.
+glibc uses a first-fit algorithm to select a free chunk.
+If a chunk is free and large enough, malloc will select this chunk.
+This can be exploited in a use-after-free situation.
+Allocating 2 buffers. They can be large, don't have to be fastbin.
+1st malloc(512): 0x560e2ba6e260
+2nd malloc(256): 0x560e2ba6e470
+we could continue mallocing here...
+now let's put a string at a that we can read later "this is A!"
+first allocation 0x560e2ba6e260 points to this is A!
+Freeing the first one...
+We don't need to free anything again. As long as we allocate less than 512, it will end up at 0x560e2ba6e260
+So, let's allocate 500 bytes
+3rd malloc(500): 0x560e2ba6e580
+And put a different string here, "this is C!"
+3rd allocation 0x560e2ba6e580 points to this is C!
+first allocation 0x560e2ba6e260 points to
+If we reuse the first allocation, it now holds the data from the third allocation.%
+
+
+*/

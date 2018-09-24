@@ -31,3 +31,23 @@ int main()
 	fprintf(stderr, "2nd malloc(8): %p\n", malloc(8));
 	fprintf(stderr, "3rd malloc(8): %p\n", malloc(8));
 }
+
+
+/*
+
+This file demonstrates a simple double-free attack with fastbins.
+Allocating 3 buffers.
+1st malloc(8): 0x558777bc2260
+2nd malloc(8): 0x558777bc2280
+3rd malloc(8): 0x558777bc22a0
+Freeing the first one...
+If we free 0x558777bc2260 again, things will crash because 0x558777bc2260 is at the top of the free list.
+So, instead, we'll free 0x558777bc2280.
+Now, we can free 0x558777bc2260 again, since it's not the head of the free list.
+Now the free list has [ 0x558777bc2260, 0x558777bc2280, 0x558777bc2260 ]. If we malloc 3 times, we'll get 0x558777bc2260 twice!
+1st malloc(8): 0x558777bc2260
+2nd malloc(8): 0x558777bc2280
+3rd malloc(8): 0x558777bc2260
+
+
+*/

